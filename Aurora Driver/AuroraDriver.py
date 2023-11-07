@@ -331,6 +331,7 @@ class HelperFunctions:
         os = platform.system()
         os_type = "Unknown"
         if os == "Windows":
+            HelperFunctions.find_com_port()
             os_type = "Windows"
         elif os == "Darwin":
             os_type = "Mac"

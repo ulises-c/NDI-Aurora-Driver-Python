@@ -1,7 +1,6 @@
 import AuroraDriver
 import time
 
-AuroraDriver.HelperFunctions.find_com_port()
 os_type = AuroraDriver.HelperFunctions.get_os()
 
 ndi_obj = None
