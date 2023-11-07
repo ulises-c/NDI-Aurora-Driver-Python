@@ -312,10 +312,10 @@ class NDI_Aurora:
         pass
 
 class HelperFunctions:
-    """
-    16-bit Cyclical Redundancy Check
-    """
     def crc16(data: str, poly=0xA001):
+        """
+        16-bit Cyclical Redundancy Check
+        """
         crc = 0xFFFF
         for b in bytearray(data, 'ascii'):
             crc ^= b
