@@ -56,8 +56,8 @@ class NDI_Aurora:
                 else:
                     temp = error_codes[i]
 
-            print(command)
-            print(f"Command: {command} - Error: {reply}")
+            stripped_command = command.strip('\r')
+            print(f"Command: {stripped_command} - Error: {reply}")
             for err in error_list:
                 if err in error_codes_dict:
                     print(f"* Code: {err} - {error_codes_dict[err]}")
