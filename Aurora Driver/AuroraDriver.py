@@ -8,29 +8,55 @@ from AuroraErrorCodes import error_codes_dict
 class NDI_Aurora:
     # Section 1
     # Functions in this section are generated to help with the creation of the API Driver
-    def __init__(self, serial_port, ser=None):
+    def __init__(self, serial_port, baudrate=9600, ser=None, crc16=None, debug_mode=None):
         """
         Object instantiation
         """
         self.serial_port = "/dev/cu.usbserial-1320"
         if(ser == None):
-            self.ser = serial.Serial(serial_port, baudrate=9600)
+            self.ser = serial.Serial(serial_port, baudrate)
+        else:
+            self.ser = ser
+        if(crc16 == None):
+            self.set_CRC16(0xFFFF)
+        else:
+            self.set_CRC16(crc16)
+        if(debug_mode == None):
+            self.set_debug_mode(False)
+        else:
+            self.set_debug_mode(debug_mode)
+        self.init_flag = False # uninitialized
+
+    def get_CRC16(self):
+        return self.crc16
+    def set_CRC16(self, crc16):
+        self.crc16 = crc16
+
+    def get_debug_mode(self):
+        return self.debug_mode
+    def set_debug_mode(self, debug_mode):
+        self.debug_mode = debug_mode
+
+    def set_init_flag(self, flag_status: bool):
+        self.init_flag = flag_status # False for uninitialized, True for initialized
+    def get_init_flag(self):
+        return self.init_flag
 
     def help(self):
         """
-        Prints a list of all commands
+        Prints a list of all commands. Undecided on how to handle this
         """
         pass
 
-    def send_command(self, command, cmd_print=True):
+    def send_command(self, command):
         """
         Sends commands through serial connection
         """
         # example -> self.ser.write(b"BEEP 1\r")
         self.ser.write(bytes(command, 'utf-8'))
         reply = self.ser.read_until(b'\r')
-        if(cmd_print):
-            self.error_decoder(reply.decode(), command)
+        if(self.get_debug_mode()):
+            self.reply_decoder(reply.decode(), command)
         return reply.decode()
 
     def close(self):
@@ -40,29 +66,30 @@ class NDI_Aurora:
         self.ser.close()
         print(f"Closed serial connection to '{self.serial_port}'")
 
-    def error_decoder(self, reply, command):
+    def reply_decoder(self, reply, command):
         """
         Interprets error code
         """
-        if "ERROR" in reply:
+        stripped_command = command.strip('\r')
+        if("ERROR" in reply):
             error_codes = reply.split("ERROR")[-1]
             # Error codes always come in length 2, so split them into strings of len 2
             error_list = []
             temp = ""
             for i in range(len(error_codes)):
-                if i % 2 == 1:
+                if(i % 2 == 1):
                     temp += error_codes[i]
                     error_list.append(temp)
                 else:
                     temp = error_codes[i]
-
-            stripped_command = command.strip('\r')
             print(f"Command: {stripped_command} - Error: {reply}")
             for err in error_list:
-                if err in error_codes_dict:
+                if(err in error_codes_dict):
                     print(f"* Code: {err} - {error_codes_dict[err]}")
                 else:
                     print(f"* Code: {err} - Unknown error")
+        else:
+            print(f"Command: {stripped_command} - Reply: {reply}")
 
     # Section 2
     # Functions in this section are direct implementations of the Aurora API
@@ -71,7 +98,7 @@ class NDI_Aurora:
         Prints the API revision
         """
         api_rev = f"APIREV \r"
-        reply = self.send_command(api_rev, cmd_print=False)
+        reply = self.send_command(api_rev)
         print(f"API revision: {reply}")
 
     def beep(self, num_beeps=1):
@@ -82,7 +109,7 @@ class NDI_Aurora:
             print(f"Keep number of beeps within 1-9")
             num_beeps = 9
         beep = f"BEEP {num_beeps}\r"
-        reply = self.send_command(beep, cmd_print=False)
+        reply = self.send_command(beep)
         # print(f"Beep = {reply}")
 
     def bx(self, option=0):
@@ -93,18 +120,63 @@ class NDI_Aurora:
         reply_options = [0x0001, 0x0800]
         # self.send_command(f"BX {reply_options[option]}\r")
         bx = f"BX \r"
-        reply = self.send_command(bx, cmd_print=True)
+        reply = self.send_command(bx)
 
-        # checksum = HelperFunctions.crc16('BX')
+        # checksum = HelperClass.crc16('BX')
         # checksum_str = str(checksum)
         # command_str = f"BX{checksum_str}\r"
         # self.send_command(command_str)
 
-    def comm(self):
+    def comm(self, baud_rate="0", data_bits="0", parity="0", stop_bits="0", hardware_handshaking="0"):
         """
         Sets the serial connection settings for the system
+        Syntax:
+            COMM<SPACE><Baud Rate><Data Bits><Parity><Stop Bits><Hardware Handshaking><CR>
+        Example command &  reply:
+            COMM 30001 -> OKAYA896
         """
-        pass
+        baud_rate_options = {
+            # Values in bps (bits per second)
+            "0": "9600",   # default
+            "1": "14400",
+            "2": "19200",
+            "3": "38400",
+            "4": "57000",
+            "5": "115200",
+            "6": "921600", #  921600 baud is only available via USB and with combined firmware revision 009 (API Revision D.001.006) or later. A USB port is available on Aurora V2 systems
+            "A": "230400"  # Baud rate parameter "A" is available with combined firmware revision 009 (API Revision D.001.006) or later.
+        }
+        data_bits_options = {
+            "0": "8", # default, must be set to 8 in order to use BX command
+            "1": "7"
+        }
+        parity_options = {
+            "0": "None", # default
+            "1": "Odd",
+            "2": "Even"
+        }
+        stop_bits_options = {
+            "0": "1", # default
+            "1": "2"
+        }
+        hardware_handshaking_options = {
+            "0": "Off", # default
+            "1": "On"
+        }
+
+        user_parameters = [baud_rate, data_bits, parity, stop_bits, hardware_handshaking]
+        comm_options = [baud_rate_options, data_bits_options, parity_options, stop_bits_options, hardware_handshaking_options]
+        parameter_names = ["Baud rate", "Data bits", "Parity", "Stop bits", "Hardware handshaking"]
+    
+        valid_command = True
+        for param, options, name in zip(user_parameters, comm_options, parameter_names):
+            if(not param in options):
+                print(f"Failure - {name}: {param}")
+                print(f"Select an option from {list(options.keys())}")
+                valid_command = False
+        if(valid_command):
+            comm = f"COMM {baud_rate}{data_bits}{parity}{stop_bits}{hardware_handshaking}\r"
+            reply = self.send_command(comm)
 
     def dstart(self):
         """
@@ -118,29 +190,67 @@ class NDI_Aurora:
         """
         pass
 
-    def echo(self):
+    def echo(self, reply_str):
         """
         Returns exactly what is sent with the command
+        Syntax:
+            ECHO<SPACE><Four or more ASCII characters><CR>
+        Example command and reply:
+            ECHO Testing! -> Testing!A81C
         """
-        pass
+        echo = f"ECHO {reply_str}\r"
+        reply = self.send_command(echo)
 
-    def get(self):
+    def get(self, *user_params):
         """
-        Returns the values of user parameters
-        """
-        pass
+        Returns the values of user parameters.
+        Currently the only user parameter values are timeouts for the API commands.
+        Only Info.Timeout is currently supported.
+        Syntax:
+            GET<SPACE><User Parameter Name><CR>
+        Example command and reply:
+            GET Info.Timeout.PINIT -> Info.Timeout.PINIT=5<LF>96A7
+        """ 
+        # Currently just using "GET *" to return all parameters
+        get = f"GET *\r"
+        reply = self.send_command(get)
 
     def init(self):
         """
         Initializes the system
+        Syntax:
+            INIT<SPACE><CR>
+        Example command and reply:
+            INIT -> OKAYA896
         """
-        pass
+        init = f"INIT \r"
+        reply = self.send_command(init)
 
-    def led(self):
+    def led(self, port_handle="0A", led_number="1", led_state="S"):
         """
         Changes the state of visible LEDs on a tool
+        Syntax:
+            LED<SPACE><Port Handle><LED Number><State><CR>
+        Example command and reply:
+            LED 0A1S -> OKAYA896
         """
-        pass
+        port_handle_options = HelperClass.port_handle_options
+        led_number_options = ["1", "2", "3"]
+        led_state_options = ["B", "F", "S"]
+        
+        user_parameters = [port_handle, led_number, led_state]
+        led_options = [port_handle_options, led_number_options, led_state_options]
+        parameter_names = ["Port handle", "LED number", "LED State"]
+
+        valid_command = True
+        for param, options, name in zip(user_parameters, led_options, parameter_names):
+            if(not param in options):
+                print(f"Failure - {name}: {param}")
+                print(f"Select an option from {options}")
+                valid_command = False
+        if(valid_command):
+            led = f"LED {port_handle}{led_number}{led_state}"
+            reply = self.send_command(led)
 
     def pdis(self):
         """
@@ -170,8 +280,25 @@ class NDI_Aurora:
         """
         Returns the number of assigned port handles and the port status for each one
         Assigns a port handle to a tool
+        Prerequisite command:
+            INIT
+        Syntax:
+            PHSR<SPACE><Reply Option><CR>
+        Example command and reply:
+            PHSR -> 001414,                        In this case, there are no tools connected to the system
+            PHSR -> 010A001C1B5,                   In this case, one tool is connected to the system and it has been assigned port handle 0A. This port handle is not initialized or enabled.
+            PHSR 03 -> 040A01F0B01F0C01F0D01F2DDB, In this case, four tool is connected to the system and have been assigned port handles 0A, 0B, 0C, and 0D. All four port handles are initialized but not enabled
+                04-0A-01-F-0B-01-F-0C-01-F-0D-01-F-2D-DB
         """
-        pass
+        # Currently just using "PHSR" to return all port handles and set them too
+        # Check if initialized, if not, initialize it
+        if(not self.get_init_flag()):
+            print(f"Initializing via PHSR")
+            self.init()
+        phsr = f"PHSR \r"
+        reply = self.send_command(phsr)
+
+        # TODO: Implement phsr reply interpreter
 
     def pinit(self):
         """
@@ -206,6 +333,11 @@ class NDI_Aurora:
     def psrch(self):
         """
         Returns a list of valid SROM device IDs for a tool
+        Syntax:
+            PSRCH<SPACE><Port Handle><CR>
+        Example command and reply:
+            PPSRCH 0A -> 10B3876530000005B7FFF, In this case, there is one SROM device, with ID 0B3876530000005B.
+                1-0B3876530000005B7FFF
         """
         pass
 
@@ -231,9 +363,12 @@ class NDI_Aurora:
         """
         Resets the system
         """
-        checksum = HelperFunctions.crc16('RESET')
-        checksum_str = str(checksum)
-        command_str = f"RESET{checksum_str}\r"
+        # crc16 = HelperClass.crc16('RESET')
+        # command_str = f"RESET{str(crc16)}\r"
+        # reply = self.send_command(command_str)
+
+        crc16 = HelperClass.calc_crc16('RESET', self)
+        command_str = f"RESET{str(self.get_CRC16())}\r"
         reply = self.send_command(command_str)
         # self.ser.write(command_str.encode())
 
@@ -265,7 +400,7 @@ class NDI_Aurora:
                 - ERROR<Error Code><CRC16><CR>
         """
         tstop = f"TSTOP \r"
-        reply = self.send_command(tstop, cmd_print=True)
+        reply = self.send_command(tstop)
         print(f"TSTOP. Tracking stopped")
 
 
@@ -297,10 +432,10 @@ class NDI_Aurora:
         Returns the latest firmware revision number of critcial processors installed in the system
         """
         reply_options = [0, 4, 5, 7, 8]
-        if reply_option in reply_options:
+        if(reply_option in reply_options):
             print("---")
             ver = f"VER {reply_option}\r"
-            self.send_command(ver, cmd_print=True)
+            self.send_command(ver)
             print("---")
         else:
             print(f"*** Error 'ver' does not have reply option '{reply_option}' as a valid option.\n*** Select one from {reply_options}")
@@ -311,39 +446,73 @@ class NDI_Aurora:
         """
         pass
 
-class HelperFunctions:
-    def crc16(data: str, poly=0xA001):
+class HelperClass:
+    # Hex numbers 0A-FF, in 2 character format, upper case
+    port_handle_options = [hex(i)[2:].zfill(2).upper() for i in range(0x0A, 0x100)]
+
+    def crc16(data: str, ndi_obj: NDI_Aurora, poly=0xA001):
         """
         16-bit Cyclical Redundancy Check
         """
-        crc = 0xFFFF
+        crc = ndi_obj.get_CRC16()
         for b in bytearray(data, 'ascii'):
             crc ^= b
             for _ in range(8):
                 crc = (crc >> 1) ^ poly if (crc & 0x0001) else crc >> 1
-            print(f"b = {b} | crc = {crc}")
+            # print(f"b = {b} | crc = {crc}")
+        ndi_obj.set_CRC16(crc)
         return crc
     
+    def calc_crc16(data_str: str, ndi_obj: NDI_Aurora):
+        """
+        Refer to Helper/CalcCRC16.cpp to double check that the CRC values are matching.
+
+        data_str: Data value to add to running CRC16.
+        crc16   : Running value always updated to double check that messages are matching.
+
+        This routine calculates a running CRC16 using the polynomial: X^16 + X^15 + X^2 + 1.
+        """
+        oddparity = [0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0]
+        crc16 = ndi_obj.get_CRC16()
+        for ch in data_str:
+            data = ord(ch)
+            data = (data ^ (crc16 & 0xff)) & 0xff
+            crc16 >>= 8
+            if(oddparity[data & 0x0f] ^ oddparity[data >> 4]):
+                crc16 ^= 0xc001
+            data <<= 6
+            crc16 ^= data
+            data <<= 1
+            crc16 ^= data
+        
+        ndi_obj.set_CRC16(crc16)
+        return crc16
+
     def get_os():
         """
         Returns OS type (Windows, Mac, Linux)
         """
-        os = platform.system()
         os_type = "Unknown"
-        if os == "Windows":
-            HelperFunctions.find_com_port()
+        os = platform.system()
+        if(os == "Windows"):
             os_type = "Windows"
-        elif os == "Darwin":
+        elif(os == "Darwin"):
             os_type = "Mac"
-        elif os == "Linux":
+        elif(os == "Linux"):
             os_type = "Linux"
-        print(f"OS = {os_type}")
+        print(f"Operating System = {os_type}")
+        port = HelperClass.find_com_port()
         return os_type
     
     def find_com_port():
         """
         Helper function to find out which COM port the Aurora device is connected to on Windows machines.
         """
-        ports = list_ports.comports()
-        for port, desc, hwid in sorted(ports):
-                print("{}: {} [{}]".format(port, desc, hwid))
+        try:
+            ports = list_ports.comports()
+            for port, desc, hwid in sorted(ports):
+                print(f"{port} | {desc} | [{hwid}]")
+            return ports
+        except Exception as e:
+            print(f"Error: {e}")
+        

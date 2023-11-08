@@ -1,24 +1,34 @@
 import AuroraDriver
-import time
 
-os_type = AuroraDriver.HelperFunctions.get_os()
+os_type = AuroraDriver.HelperClass.get_os()
 
 ndi_obj = None
 mac_port = "/dev/cu.usbserial-1320"
-win_port = "COM7"
+win_port = "COM6"
 
 if(os_type == "Windows"):
-    ndi_obj = AuroraDriver.NDI_Aurora(serial_port=win_port)
+    ndi_obj = AuroraDriver.NDI_Aurora(serial_port=win_port, debug_mode=True)
 elif(os_type == "Mac"):
-    ndi_obj = AuroraDriver.NDI_Aurora(serial_port=mac_port)
+    ndi_obj = AuroraDriver.NDI_Aurora(serial_port=mac_port, debug_mode=True)
 
-# for i in range(5):
-#     ndi_obj.beep(1)
-#     time.sleep(0.25)
-# ndi_obj.reset()
-# ndi_obj.bx()
+
+### working commands
+# ndi_obj.comm()
 # ndi_obj.beep()
-# ndi_obj.tstop()
-ndi_obj.api_rev()
+# ndi_obj.api_rev()
 # ndi_obj.ver()
 # ndi_obj.close()
+# ndi_obj.echo("Testing!")
+# ndi_obj.init()
+# ndi_obj.get()
+# ndi_obj.phsr()
+
+### partially working commands 
+# ndi_obj.bx()
+# ndi_obj.tstop()
+# ndi_obj.led()
+
+### not working commands
+# ndi_obj.reset()
+
+### untested commands
