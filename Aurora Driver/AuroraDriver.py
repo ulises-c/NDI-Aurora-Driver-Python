@@ -139,7 +139,11 @@ class NDI_Aurora:
             print(f"\t- Number of Port Handles: {num_port_handles}")
             for port_handle, port_status in port_handles:
                 print(f"\t- Port Handle: {port_handle} -> Port Handle Status: {port_status} -> {port_status_dict[port_status]}")
-                self.interpret_status(port_status)
+                port_initialized, port_enabled = self.interpret_status(port_status)
+                if(not port_initialized):
+                    self.pinit(port_handle)
+                if(not port_enabled):
+                    self.pena(port_handle)
             print(f"\t- CRC16: {crc16}")
             print("\t*** **************** ***")
         # Setting CRC16 and port handles
@@ -164,6 +168,7 @@ class NDI_Aurora:
         # Print the status of each bit field
         for field, status in status_dict.items():
             print(f"\t\t- {field}: {status}")
+        return status_dict['Initialized'], status_dict['Enabled']
 
 
     # Section 2
@@ -333,11 +338,27 @@ class NDI_Aurora:
         """
         pass
 
-    def pena(self):
+    def pena(self, port_handle, tool_tracking_priority="D"):
         """
         Enables reporting of transformations for a particular port handle
+        Prerequisite command:
+            PINIT
+        Syntax:
+            PENA<SPACE><Port Handle><Tool Tracking Priority><CR>
+        Example command and reply:
+            PENA 0AD -> OKAYA896
         """
-        pass
+        tool_tracking_priorities = {
+            "S": "Static: a static tool is considered to be relatively immobile, e.g. a reference tool",
+            "D": "Dynamic: a dynamic tool is considered to be in motion, e.g. a probe",
+            "B": "Button box: a button box can have switches and LEDs, but no sensors. No transformations are returned for a button box tool, but switch status is returned"
+        }
+        if(not tool_tracking_priority in tool_tracking_priorities):
+            print(f"Invalid option ({tool_tracking_priority}). Select one from {tool_tracking_priorities}.")
+            print("Switching to dyanamic option 'D'")
+            tool_tracking_priority = "D"
+        command_str = f"PENA {port_handle}{tool_tracking_priority}\r"
+        reply = self.send_command(command_str)
 
     def phf(self):
         """
@@ -351,7 +372,7 @@ class NDI_Aurora:
         """
         pass
 
-    def phsr(self):
+    def phsr(self, option="00"):
         """
         Returns the number of assigned port handles and the port status for each one
         Assigns a port handle to a tool
@@ -370,14 +391,24 @@ class NDI_Aurora:
         if(not self.get_init_flag()):
             print(f"Initializing via PHSR")
             self.init()
-        phsr = f"PHSR \r"
+        options = {
+            "00": "Reports all allocated port handles (default)",
+            "01": "Reports port handles that need to be freed",
+            "02": "Reports port handles that are occupied, but not initialized or enabled",
+            "03": "Reports port handles that are occupied and initialized, but not enabled",
+            "04": "Reports enabled port handles"
+            }
+        if(not option in options):
+            print(f"Invalid option ({option}). Select one from {options}.")
+            print(f"Switching to default option '{option[0]}'")
+            option = options[0]
+        phsr = f"PHSR {option}\r"
         reply = self.send_command(phsr)
         if(self.get_debug_mode()):
+            print(f"\t> PHSR: {option} - {options[option]}")
             reply_decode = self.phsr_reply_decode(reply)
 
-        # TODO: Implement phsr reply interpreter
-
-    def pinit(self):
+    def pinit(self, port_handle):
         """
         Initializes a port handle
         Prerequisite command:
@@ -387,7 +418,8 @@ class NDI_Aurora:
         Example command and reply:
             PINIT 0A -> OKAYA896
         """
-        pass
+        command_str = f"PINIT {port_handle}\r"
+        reply = self.send_command(command_str)
 
     def pprd(self):
         """
