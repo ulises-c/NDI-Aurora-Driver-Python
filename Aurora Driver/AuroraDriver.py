@@ -4,6 +4,7 @@ import binascii
 import platform
 
 from AuroraErrorCodes import error_codes_dict
+from AuroraPortStatus import port_status_dict
 
 class NDI_Aurora:
     # Section 1
@@ -26,6 +27,7 @@ class NDI_Aurora:
         else:
             self.set_debug_mode(debug_mode)
         self.init_flag = False # uninitialized
+        self.port_handles = None
 
     def get_CRC16(self):
         return self.crc16
@@ -41,6 +43,11 @@ class NDI_Aurora:
         self.init_flag = flag_status # False for uninitialized, True for initialized
     def get_init_flag(self):
         return self.init_flag
+    
+    def set_port_handles(self, port_handles):
+        self.port_handles = port_handles
+    def get_port_handles(self):
+        return self.port_handles
 
     def help(self):
         """
@@ -68,7 +75,7 @@ class NDI_Aurora:
 
     def reply_decoder(self, reply, command):
         """
-        Interprets error code
+        Interprets replies including error codes
         """
         stripped_command = command.strip('\r')
         if("ERROR" in reply):
@@ -90,6 +97,74 @@ class NDI_Aurora:
                     print(f"* Code: {err} - Unknown error")
         else:
             print(f"Command: {stripped_command} - Reply: {reply}")
+
+    def phsr_reply_decode(self, reply):
+        """
+        Interprets PHSR status reply
+        Reply structure:
+            <Number of Port Handles> - 2 characters
+            <1st Port Handle><1st Port Handle Status> - 5 characters, first 2 char are port handle, last 3 char are status
+            <2nd Port Handle><2nd Port Handle Status> - 5 characters, first 2 char are port handle, last 3 char are status
+            ...
+            <nth Port Handle><nth Port Handle Status> - 5 characters, first 2 char are port handle, last 3 char are status
+            <CRC16><CR> - 4 characters
+        Example reply (1):
+            040A0010B0010C0010D001ECFB -> Actual reply encountered so far
+            <04><0A 001><0B 001><0C 001><0D 001><ECFB>
+        Example reply (2):
+            001414 -> In this case, there are no tools connected to the system.
+            <00><1414>
+        Example reply (3):
+            040A01F0B01F0C01F0D01F2DDB -> In this case, four tools are connected to the system and have been assigned port handles 0A, 0B, 0C, and 0D. All four port handles are initialized but not enabled.
+            <04><0A 01F><0B 01F><0C 01F><0D 01F><2DDB>
+        Example reply (4):
+            010A001C1B5 -> In this case, one tool is connected to the system and it has been assigned port handle 0A. This port handle is not initialized or enabled.
+            <01><0A 001><C1B5>
+        """
+        # Number of Port Handles
+        num_port_handles = int(reply[:2], 16)
+        reply = reply[2:]
+        # Port Handles and their Status
+        port_handles = []
+        for _ in range(num_port_handles):
+            port_handle = reply[:2]
+            port_status = reply[2:5]
+            port_handles.append((port_handle, port_status))
+            reply = reply[5:]
+        # CRC16
+        crc16 = reply[:4]
+        if(self.get_debug_mode):
+            # Printing for debug
+            print("\t*** PHSR reply decode ***")
+            print(f"\t- Number of Port Handles: {num_port_handles}")
+            for port_handle, port_status in port_handles:
+                print(f"\t- Port Handle: {port_handle} -> Port Handle Status: {port_status} -> {port_status_dict[port_status]}")
+                self.interpret_status(port_status)
+            print(f"\t- CRC16: {crc16}")
+            print("\t*** **************** ***")
+        # Setting CRC16 and port handles
+        self.set_CRC16 = crc16
+        self.set_port_handles = port_handles
+        return num_port_handles, port_handles, crc16
+    
+    def interpret_status(self, port_status_hex):
+        # Convert the hex string to an integer
+        port_status_int = int(port_status_hex, 16)
+
+        # Create a dictionary to store the status of each bit field
+        status_dict = {
+            'Occupied': bool(port_status_int & (1 << 0)),
+            'GPIO line 1 closed': bool(port_status_int & (1 << 1)),
+            'GPIO line 2 closed': bool(port_status_int & (1 << 2)),
+            'GPIO line 3 closed': bool(port_status_int & (1 << 3)),
+            'Initialized': bool(port_status_int & (1 << 4)),
+            'Enabled': bool(port_status_int & (1 << 5)),
+        }
+
+        # Print the status of each bit field
+        for field, status in status_dict.items():
+            print(f"\t\t- {field}: {status}")
+
 
     # Section 2
     # Functions in this section are direct implementations of the Aurora API
@@ -297,12 +372,20 @@ class NDI_Aurora:
             self.init()
         phsr = f"PHSR \r"
         reply = self.send_command(phsr)
+        if(self.get_debug_mode()):
+            reply_decode = self.phsr_reply_decode(reply)
 
         # TODO: Implement phsr reply interpreter
 
     def pinit(self):
         """
         Initializes a port handle
+        Prerequisite command:
+            PHSR
+        Syntax:
+            PINIT<SPACE><Port Handle><CR>
+        Example command and reply:
+            PINIT 0A -> OKAYA896
         """
         pass
 

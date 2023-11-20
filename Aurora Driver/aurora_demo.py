@@ -13,15 +13,15 @@ elif(os_type == "Mac"):
 
 
 ### working commands
-# ndi_obj.comm()
-# ndi_obj.beep()
+ndi_obj.comm()
+ndi_obj.beep()
 # ndi_obj.api_rev()
 # ndi_obj.ver()
 # ndi_obj.close()
 # ndi_obj.echo("Testing!")
-# ndi_obj.init()
+ndi_obj.init()
 # ndi_obj.get()
-# ndi_obj.phsr()
+ndi_obj.phsr()
 
 ### partially working commands 
 # ndi_obj.bx()
@@ -32,3 +32,5 @@ elif(os_type == "Mac"):
 # ndi_obj.reset()
 
 ### untested commands
+
+# AuroraDriver.NDI_Aurora.reply_decoder(self=None, reply="ERROR133A42", command="PINIT 0A")
