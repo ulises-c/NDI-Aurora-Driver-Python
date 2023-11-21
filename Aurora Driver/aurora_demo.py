@@ -12,16 +12,22 @@ elif(os_type == "Mac"):
     ndi_obj = AuroraDriver.NDI_Aurora(serial_port=mac_port, debug_mode=True)
 
 
+def startup_sequence():
+    ndi_obj.comm()
+    ndi_obj.beep()
+    ndi_obj.init()
+    ndi_obj.phsr()
+
 ### working commands
-ndi_obj.comm()
-ndi_obj.beep()
+# ndi_obj.comm()
+# ndi_obj.beep()
 # ndi_obj.api_rev()
 # ndi_obj.ver()
 # ndi_obj.close()
 # ndi_obj.echo("Testing!")
-ndi_obj.init()
+# ndi_obj.init()
 # ndi_obj.get()
-ndi_obj.phsr()
+# ndi_obj.phsr()
 
 ### partially working commands 
 # ndi_obj.bx()
@@ -34,3 +40,5 @@ ndi_obj.phsr()
 ### untested commands
 
 # AuroraDriver.NDI_Aurora.reply_decoder(self=None, reply="ERROR133A42", command="PINIT 0A")
+
+startup_sequence()
