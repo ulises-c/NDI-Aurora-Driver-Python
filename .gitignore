@@ -1,6 +1,7 @@
 # IDE project files
 .idea
 .vscode
+Sensor_SROM
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
