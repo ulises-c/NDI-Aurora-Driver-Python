@@ -424,6 +424,12 @@ class NDI_Aurora:
     def pprd(self):
         """
         Reads data from the SROM device in a tool
+        Prerequisite command:
+            PSEL
+        Syntax:
+            PPRD<SPACE><Port Handle><SROM Device Address><CR>
+        Example command and reply:
+            PPRD 0A0000 -> 010041010000000200000000053CDD3302000000020000000000000000000000000000000000000000000000000000000000000008000000780B6D3D9E0F73BE7DE9
         """
         pass
 
@@ -435,7 +441,13 @@ class NDI_Aurora:
 
     def psel(self):
         """
-        Selects a tool SROM device as the target for reading or writing with pprd() or ppwr()
+        Selects a tool SROM device as the target for reading or writing with PPRD or PPWR
+        Prerequisite command:
+            PHSR
+        Syntax:
+            PSEL<SPACE><Port Handle><Tool SROM Device ID><CR>
+        Example command and reply:
+            PSEL 0A0B3876530000005B -> OKAYA896
         """
         pass
 

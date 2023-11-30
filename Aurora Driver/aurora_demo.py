@@ -6,6 +6,8 @@ ndi_obj = None
 mac_port = "/dev/cu.usbserial-1320"
 win_port = "COM6"
 
+SROM = "Sensor_SROM\DDRO-080-061-01_GENERIC.rom"
+
 if(os_type == "Windows"):
     ndi_obj = AuroraDriver.NDI_Aurora(serial_port=win_port, debug_mode=True)
 elif(os_type == "Mac"):
