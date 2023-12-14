@@ -17,8 +17,10 @@ elif(os_type == "Mac"):
 def startup_sequence():
     ndi_obj.comm()
     ndi_obj.beep()
+    ndi_obj.api_rev()
+    ndi_obj.ver()
     ndi_obj.init()
-    ndi_obj.phsr()
+    # ndi_obj.phsr()
 
 ### working commands
 # ndi_obj.comm()

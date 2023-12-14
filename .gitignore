@@ -2,6 +2,7 @@
 .idea
 .vscode
 Sensor_SROM
+User Guide
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
