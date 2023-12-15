@@ -482,7 +482,11 @@ class NDI_Aurora:
 
     def pvwr(self):
         """
-        Override a tool definition file in a tool, and cand be used to test a tool definiton file before permanently recording the tool definition file onto the SROM device
+        Override a tool definition file in a tool, and can be used to test a tool definiton file before permanently recording the tool definition file onto the SROM device
+        Syntax:
+            PVWR<SPACE><Port Handle><Start Address><Tool Definition Data><CR>
+        Example command and reply:
+            PVWR 0B00004E444900551C000001000000000000010100000001A419335A000000030000000300000000000040000000000000000000000000000000000000000000000000 -> OKAYA896
         """
         pass
 

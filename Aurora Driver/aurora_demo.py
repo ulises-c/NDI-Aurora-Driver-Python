@@ -4,7 +4,7 @@ os_type = AuroraDriver.HelperClass.get_os()
 
 ndi_obj = None
 mac_port = "/dev/cu.usbserial-1320"
-win_port = "COM6"
+win_port = "COM3"
 
 SROM = "Sensor_SROM\DDRO-080-061-01_GENERIC.rom"
 
